@@ -1,0 +1,4 @@
+date,student_id,student_name,grade,class_name,counselor,topic,method,duration_minutes,notes
+2026-03-04,1001,김민준,2,3,박상담,진로 고민,개인상담,40,고교 선택 논의
+2026-03-04,1002,이지우,2,3,박상담,교우관계,개인상담,30,친구 갈등 중재 계획
+2026-03-12,1001,김민준,2,3,박상담,학습동기,개인상담,35,학습 루틴 설계
