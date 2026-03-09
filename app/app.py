@@ -26,84 +26,100 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         qs = parse_qs(parsed.query)
 
-        if path == "/":
-            months = "".join([f"<li><a href='/schedule/restore/{m}'>{m} 복원(JSON)</a></li>" for m in schedules.list_saved()]) or "<li>없음</li>"
-            body = f"""
-            <h1>학교상담기록 관리 프로그램</h1>
-            <h2>1) 나이스 업로드</h2>
-            <form action='/nice/upload' method='post' enctype='multipart/form-data'>
-              <input type='file' name='file' accept='.csv' required><button>업로드</button>
-            </form>
-            <h2>2) 월별 결재대장</h2>
-            <form action='/ledger' method='get'><input name='month' placeholder='YYYY-MM' required><button>조회</button></form>
-            <h2>3) 상담카드 PDF</h2>
-            <form onsubmit="event.preventDefault();location='/student-card/'+this.student_id.value+'.pdf';"><input name='student_id' required><button>PDF</button></form>
-            <h2>4) 월간일정 저장/복원</h2>
-            <form action='/schedule/save' method='post'>
-              <input name='year_month' placeholder='YYYY-MM' required>
-              <textarea name='schedules' style='width:100%;height:120px'>[]</textarea>
-              <button>저장</button>
-            </form>
-            <ul>{months}</ul>
-            """
-            self._send(200, html_page(body), "text/html; charset=utf-8")
-            return
+        try:
+            if path == "/":
+                months = "".join([f"<li><a href='/schedule/restore/{m}'>{m} 복원(JSON)</a></li>" for m in schedules.list_saved()]) or "<li>없음</li>"
+                body = f"""
+                <h1>학교상담기록 관리 프로그램</h1>
+                <p>실행: <code>python run.py</code> (기본 포트: 8000)</p>
 
-        if path == "/ledger":
-            ym = qs.get("month", [""])[0]
-            rows = monthly_approval_ledger(repo.load(), ym) if ym else []
-            trs = "".join([f"<tr><td>{r['date']}</td><td>{r['counselor']}</td><td>{r['count']}</td><td>{r['total_minutes']}</td><td>{r['students']}</td></tr>" for r in rows]) or "<tr><td colspan='5'>데이터 없음</td></tr>"
-            body = f"<h1>월별 결재대장</h1><form><input name='month' value='{ym}'><button>조회</button></form><p><a href='/ledger.csv?month={ym}'>CSV 다운로드</a></p><table border='1'><tr><th>일자</th><th>상담자</th><th>건수</th><th>총분</th><th>학생</th></tr>{trs}</table><p><a href='/'>홈</a></p>"
-            self._send(200, html_page(body), "text/html; charset=utf-8")
-            return
+                <h2>1) 나이스 업로드</h2>
+                <form action='/nice/upload' method='post' enctype='multipart/form-data'>
+                  <input type='file' name='file' accept='.csv' required><button>업로드</button>
+                </form>
 
-        if path == "/ledger.csv":
-            ym = qs.get("month", [""])[0]
-            rows = monthly_approval_ledger(repo.load(), ym)
-            out = io.StringIO()
-            writer = csv.DictWriter(out, fieldnames=["date", "counselor", "count", "total_minutes", "students"])
-            writer.writeheader(); writer.writerows(rows)
-            self._send(200, out.getvalue().encode("utf-8"), "text/csv; charset=utf-8", f"attachment; filename=approval_ledger_{ym}.csv")
-            return
+                <h2>2) 월별 결재대장</h2>
+                <form action='/ledger' method='get'><input name='month' placeholder='YYYY-MM' required><button>조회</button></form>
 
-        if path.startswith("/student-card/") and path.endswith(".pdf"):
-            student_id = path.split("/")[-1].removesuffix(".pdf")
-            card = student_card(repo.load(), student_id)
-            pdf = build_student_card_pdf(card)
-            self._send(200, pdf, "application/pdf", f"attachment; filename=counsel_card_{student_id}.pdf")
-            return
+                <h2>3) 상담카드 PDF</h2>
+                <form onsubmit="event.preventDefault();location='/student-card/'+this.student_id.value+'.pdf';"><input name='student_id' required><button>PDF</button></form>
 
-        if path.startswith("/schedule/restore/"):
-            ym = path.split("/")[-1]
-            payload = schedules.restore(ym)
-            self._send(200, json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"), "application/json; charset=utf-8")
-            return
+                <h2>4) 월간일정 저장/복원</h2>
+                <form action='/schedule/save' method='post'>
+                  <input name='year_month' placeholder='YYYY-MM' required>
+                  <textarea name='schedules' style='width:100%;height:120px'>[]</textarea>
+                  <button>저장</button>
+                </form>
+                <ul>{months}</ul>
+                """
+                self._send(200, html_page(body), "text/html; charset=utf-8")
+                return
 
-        self._send(404, b"Not Found", "text/plain")
+            if path == "/health":
+                self._send(200, b"ok", "text/plain; charset=utf-8")
+                return
+
+            if path == "/ledger":
+                ym = qs.get("month", [""])[0]
+                rows = monthly_approval_ledger(repo.load(), ym) if ym else []
+                trs = "".join([f"<tr><td>{r['date']}</td><td>{r['counselor']}</td><td>{r['count']}</td><td>{r['total_minutes']}</td><td>{r['students']}</td></tr>" for r in rows]) or "<tr><td colspan='5'>데이터 없음</td></tr>"
+                body = f"<h1>월별 결재대장</h1><form><input name='month' value='{ym}'><button>조회</button></form><p><a href='/ledger.csv?month={ym}'>CSV 다운로드</a></p><table border='1'><tr><th>일자</th><th>상담자</th><th>건수</th><th>총분</th><th>학생</th></tr>{trs}</table><p><a href='/'>홈</a></p>"
+                self._send(200, html_page(body), "text/html; charset=utf-8")
+                return
+
+            if path == "/ledger.csv":
+                ym = qs.get("month", [""])[0]
+                rows = monthly_approval_ledger(repo.load(), ym)
+                out = io.StringIO()
+                writer = csv.DictWriter(out, fieldnames=["date", "counselor", "count", "total_minutes", "students"])
+                writer.writeheader()
+                writer.writerows(rows)
+                self._send(200, out.getvalue().encode("utf-8"), "text/csv; charset=utf-8", f"attachment; filename=approval_ledger_{ym}.csv")
+                return
+
+            if path.startswith("/student-card/") and path.endswith(".pdf"):
+                student_id = path.split("/")[-1].removesuffix(".pdf")
+                card = student_card(repo.load(), student_id)
+                pdf = build_student_card_pdf(card)
+                self._send(200, pdf, "application/pdf", f"attachment; filename=counsel_card_{student_id}.pdf")
+                return
+
+            if path.startswith("/schedule/restore/"):
+                ym = path.split("/")[-1]
+                payload = schedules.restore(ym)
+                self._send(200, json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"), "application/json; charset=utf-8")
+                return
+
+            self._send(404, b"Not Found", "text/plain")
+        except Exception as exc:
+            self._send(400, f"요청 처리 실패: {exc}".encode("utf-8"), "text/plain; charset=utf-8")
 
     def do_POST(self):
-        if self.path == "/nice/upload":
-            form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={"REQUEST_METHOD": "POST"})
-            file_item = form["file"] if "file" in form else None
-            if not file_item or not getattr(file_item, "file", None):
-                self._send(400, b"file missing", "text/plain")
+        try:
+            if self.path == "/nice/upload":
+                form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={"REQUEST_METHOD": "POST"})
+                file_item = form["file"] if "file" in form else None
+                if not file_item or not getattr(file_item, "file", None):
+                    self._send(400, b"file missing", "text/plain")
+                    return
+                records = parse_nice_csv(file_item.file.read())
+                repo.append_many(records)
+                self._redirect("/")
                 return
-            records = parse_nice_csv(file_item.file.read())
-            repo.append_many(records)
-            self._redirect("/")
-            return
 
-        if self.path == "/schedule/save":
-            length = int(self.headers.get("Content-Length", "0"))
-            raw = self.rfile.read(length).decode("utf-8")
-            body = parse_qs(raw)
-            year_month = body.get("year_month", [""])[0]
-            schedules_json = body.get("schedules", ["[]"])[0]
-            schedules.save(year_month, json.loads(schedules_json))
-            self._redirect("/")
-            return
+            if self.path == "/schedule/save":
+                length = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(length).decode("utf-8")
+                body = parse_qs(raw)
+                year_month = body.get("year_month", [""])[0]
+                schedules_json = body.get("schedules", ["[]"])[0]
+                schedules.save(year_month, json.loads(schedules_json))
+                self._redirect("/")
+                return
 
-        self._send(404, b"Not Found", "text/plain")
+            self._send(404, b"Not Found", "text/plain")
+        except Exception as exc:
+            self._send(400, f"요청 처리 실패: {exc}".encode("utf-8"), "text/plain; charset=utf-8")
 
     def _redirect(self, location: str):
         self.send_response(HTTPStatus.SEE_OTHER)
@@ -120,9 +136,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def run():
-    server = ThreadingHTTPServer(("0.0.0.0", 8000), Handler)
-    print("Serving on http://0.0.0.0:8000")
+def run(host: str = "0.0.0.0", port: int = 8000):
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f"Serving on http://{host}:{port}")
     server.serve_forever()
 
 
